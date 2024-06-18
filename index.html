@@ -3,83 +3,145 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gyroscope Gravity</title>
+    <title>Gyroscope Maze</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
         }
-        #gravityDiv {
+        .cell {
+            box-sizing: border-box;
             width: 50px;
             height: 50px;
+            float: left;
+        }
+        .wall {
+            background-color: black;
+        }
+        .path {
+            background-color: white;
+        }
+        #player {
+            width: 45px;
+            height: 45px;
             background-color: red;
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            z-index: 10;
         }
     </style>
 </head>
 <body>
-    <div id="gravityDiv"></div>
+    <div id="mazeContainer"></div>
+    <div id="player"></div>
 
     <script>
-        function handleOrientation(event) {
-            console.log("Device orientation event detected.");
-            var beta = event.beta; // inclination avant-arrière [-180, 180]
-            var gamma = event.gamma; // inclinaison gauche-droite [-90, 90]
+        // Dimensions du labyrinthe
+        const rows = 10;
+        const cols = 10;
+        const cellSize = 50;
 
-            console.log("beta (front-back tilt):", beta);
-            console.log("gamma (left-right tilt):", gamma);
+        const mazeContainer = document.getElementById('mazeContainer');
+        mazeContainer.style.width = `${cols * cellSize}px`;
+        mazeContainer.style.height = `${rows * cellSize}px`;
+        mazeContainer.style.position = 'relative';
 
-            var gravityDiv = document.getElementById('gravityDiv');
-            var maxX = window.innerWidth - gravityDiv.clientWidth;
-            var maxY = window.innerHeight - gravityDiv.clientHeight;
+        // Génération du labyrinthe (très basique)
+        const maze = generateMaze(rows, cols);
+        renderMaze(maze);
 
-            console.log("maxX (maximum x position):", maxX);
-            console.log("maxY (maximum y position):", maxY);
+        const player = document.getElementById('player');
+        let playerPosition = { x: 1, y: 1 }; // Position initiale
+        updatePlayerPosition();
 
-            // Calculer la nouvelle position
-            var newX = (gamma + 90) / 180 * maxX;
-            var newY = (beta + 180) / 360 * maxY;
-
-            console.log("newX (calculated x position):", newX);
-            console.log("newY (calculated y position):", newY);
-
-            // Appliquer la position à l'élément
-            gravityDiv.style.left = newX + 'px';
-            gravityDiv.style.top = newY + 'px';
-
-            console.log("Updated gravityDiv position:", {
-                left: gravityDiv.style.left,
-                top: gravityDiv.style.top
-            });
+        if (window.DeviceOrientationEvent) {
+            requestPermission();
+        } else {
+            alert("Votre appareil ne supporte pas l'orientation du dispositif.");
         }
 
         function requestPermission() {
             if (typeof DeviceMotionEvent.requestPermission === 'function') {
                 DeviceMotionEvent.requestPermission()
-                .then(permissionState => {
-                    if (permissionState === 'granted') {
-                        window.addEventListener('deviceorientation', handleOrientation);
-                    } else {
-                        console.log("Permission denied.");
-                        alert("Permission to access device orientation was denied.");
-                    }
-                })
-                .catch(console.error);
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
+                        } else {
+                            alert("Permission to access device orientation was denied.");
+                        }
+                    })
+                    .catch(console.error);
             } else {
-                // Non-iOS devices
                 window.addEventListener('deviceorientation', handleOrientation);
             }
         }
 
-        if (window.DeviceOrientationEvent) {
-            console.log("DeviceOrientationEvent is supported.");
-            requestPermission();
-        } else {
-            console.log("DeviceOrientationEvent is not supported.");
-            alert("Votre appareil ne supporte pas l'orientation du dispositif.");
+        function handleOrientation(event) {
+            const beta = event.beta; // inclination avant-arrière [-180, 180]
+            const gamma = event.gamma; // inclinaison gauche-droite [-90, 90]
+
+            const speed = 1;
+
+            if (Math.abs(beta) > 10) {
+                playerPosition.y += (beta > 0 ? speed : -speed);
+            }
+            if (Math.abs(gamma) > 10) {
+                playerPosition.x += (gamma > 0 ? speed : -speed);
+            }
+
+            playerPosition.x = Math.max(0, Math.min(cols - 1, playerPosition.x));
+            playerPosition.y = Math.max(0, Math.min(rows - 1, playerPosition.y));
+
+            if (!isWall(playerPosition.x, playerPosition.y)) {
+                updatePlayerPosition();
+            }
+        }
+
+        function updatePlayerPosition() {
+            player.style.left = `${playerPosition.x * cellSize + 2.5}px`;
+            player.style.top = `${playerPosition.y * cellSize + 2.5}px`;
+        }
+
+        function isWall(x, y) {
+            return maze[y][x] === 1;
+        }
+
+        function generateMaze(rows, cols) {
+            // Génération d'un labyrinthe très basique avec des murs fixes
+            // 0 = chemin, 1 = mur
+            const maze = [
+                [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 1, 0, 1, 1, 1, 0, 1],
+                [1, 1, 0, 1, 0, 0, 0, 0, 0, 1],
+                [1, 0, 0, 1, 0, 1, 1, 1, 0, 1],
+                [1, 0, 1, 1, 0, 1, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 1, 0, 1, 1, 1],
+                [1, 1, 1, 1, 0, 1, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 1, 1, 1, 0, 1],
+                [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+            ];
+            return maze;
+        }
+
+        function renderMaze(maze) {
+            mazeContainer.innerHTML = '';
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    if (maze[y][x] === 1) {
+                        cell.classList.add('wall');
+                    } else {
+                        cell.classList.add('path');
+                    }
+                    cell.style.width = `${cellSize}px`;
+                    cell.style.height = `${cellSize}px`;
+                    cell.style.left = `${x * cellSize}px`;
+                    cell.style.top = `${y * cellSize}px`;
+                    cell.style.position = 'absolute';
+                    mazeContainer.appendChild(cell);
+                }
+            }
         }
     </script>
 </body>
